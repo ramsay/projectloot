@@ -1,0 +1,42 @@
+Welcome to Project Loot
+
+This is an attempt to both learn GAE and finally launch something. The idea is 
+simple: make a turn-based multiplayer RPG.
+
+Gameplan:
+
+1. Make an ugly multiplayer demo of a my existing dex.py using the GAE "blitz"
+demo as a base.
+
+2. Find artists/designers to make it pretty.
+
+3. Make the game slightly more robust/rounded add classes, customization, 
+pseudo quests, AI.
+
+4. Launch beta and post to social networking for feedback (reddit, facebook,
+twitter)
+
+5. Apply feedback and begin working on native mobile clients.
+
+Gameplay:
+
+Battle may be played with 2 to 4 Players (Teams optional). Each player has 2 to 
+5 Heroes that they use to interact. A round consists of players simultaneously 
+deciding (in a time limit) what actions each of their Heroes will do and to 
+which player. Each Hero has 3 actions Attack, Defend, and some skill/magic that 
+expends the player's pooled magic points. 
+When everyone has submitted their choices all actions from each team are 
+prioritized by Hero agility and action speed. Defendors will be added to the 
+frontline immediately. Basic attacks will give damage to the target minus the 
+target's pooled defense if he has any defendors. Damage is counted against the
+player's pooled health. On each attack a defendor is pushed back to his normal 
+position. Magic or skills are caste on their turn. And finally any status 
+effects are applied.
+Battle continues until less than 2 Players have less than 1 health points in 
+their respective pools. The victor is the Player with the highest health pool 
+at the end of the battle.
+
+Future plans may include a home castle or village that can be defended by 
+heroes while you are offline. Also you may send groups of heroes on unattended
+pseudo quests to get gold, experience, etc. You can read text logs of their 
+status (like Progress Quest). A must have feature will be matchmaking.
