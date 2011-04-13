@@ -1,6 +1,8 @@
 '''Project Dex
 Simplistic multiplayer card-like RPG.
 '''
+import ajax
+
 DEBUG = True
 import random
 
@@ -31,7 +33,7 @@ class Roar(Ability):
     def affect(self, target):
         '''Reduce targets defense by 1'''
         target.defense -= 1
-    
+
 class Hero(object):
     '''Base battle piece class'''
     h_p = 1
@@ -95,7 +97,7 @@ class Team(object):
         various states that are in the scope of a round, such as the heroes
         that are defending.'''
         self.defendors = []
-        
+
 def end_game(teams):
     '''Tests all teams for the simple end game scenario where at least one
     team's HP pool is less than 1'''
@@ -150,10 +152,70 @@ def battle(teams):
 def print_game_end(results):
     '''Prints out a friendly representation of the battle results'''
     print "The game has ended our winner is ", results[0][1]
-    print "With a lead of ", results[0][0]-results[1][0], " over ", 
+    print "With a lead of ", results[0][0]-results[1][0], " over ",
     print results[1][1]
-    
-if __name__ == '__main__':
-    TEAMS = [Team("Red", [WeakMage()]), Team("Blu", [WeakFighter()])]
-    RESULTS = battle(TEAMS)
-    print_game_end(RESULTS)
+
+class DexBattle(ajax.AjaxHandler):
+    ''' Converting dex.battle into a gae request hnadler '''
+    def Get(self, user):
+        ''' Our handler for HTTP GET requests, copying from GAE demo
+        "blitz" '''
+        self.response.header['Content-Type'] = 'text/javascript'
+        path_list = self.request.path.strip('/').split('/')
+
+    def Put(self, user):
+        ''' Create a game '''
+        player1 = users.GetCurrentUser()
+        invitee = self.request.get("email")
+        status = gamemodel.GAME_STATUS_OPEN
+        if invitee:
+            status = gamemodel.GAME_STATUS_INVITED
+        game_type = self.request.get("game_type")
+
+        color = self.request.get("color")
+        if color and color != "random":
+            color = gamemodel.WHITE if color.lower() == "white" else gamemodel.BLACK
+        else:
+            color = random.getrandbits(1)
+
+        newGame = gamemodel.Game(player1=player1, public=public,
+            status=status, game_type=game_type, player1_color=color)
+
+        if invitee:
+            try:
+                newGame.player2 = users.User(invitee)
+                if newGame.player2 == newGame.player1:
+                    self.error(http.HTTP_ERROR)
+                    self.response.out.write(
+                        "Cannot invite yourself to a game")
+                    return
+            except: usernotfoundError:
+                newGame.invitee = invitee
+
+        newGame.put()
+
+    def Post(self, user):
+        ''' Update game with move or chat '''
+        game_to_modify = self._get_game_to_modify(user)
+        if game_to_modify:
+            path_list = self.request.path.strip('/').split('/')
+            command = path_list[2]
+            if command == 'join':
+                result = game_to_modify.join(user)
+                if not result:
+                    self.error(http.HTTP_FORBIDDEN)
+            elif command == 'move':
+                #JSON encoded list of decisions.
+                moves = self.request.get('moves')
+                victor = None
+                is_resignation = False
+                if move:
+                    victor = get_player_number(game_to_modify, user, True)
+                    is_resignation = True
+                elif move == 'draw':
+                    victor = 0
+                if not game_to_modify.update(user, move, timer, victor):
+                    self.error(http.HTTP_FORBIDDEN)
+                else:
+                    if game_to_modify.game_type == gamemodel.GAME_TYPE
+
