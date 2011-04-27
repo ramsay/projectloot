@@ -131,6 +131,67 @@ def get_user_choice(hero, team, teams):
         team.m_p -= hero.ability.cost
         return (hero.agility, hero.ability.affect, teams[target-1])
 
+class Battle(db.Model):
+    '''A game model that provides functions to alter the state.'''
+    player1 = db.UserProperty(required=True)
+    player2 = db.UserProperty(required=True)
+    team1 = db.ListProperty(Hero)
+    team2 = db.ListProperty(Hero)
+    moves1 = db.StringListProperty()
+    moves2 = db.StringListProperty()
+    tasks = db.StringPropery()
+    
+    # Battle stats
+    health1 = int()
+    magic1 = int()
+    defense1 = int()
+    health2 = int()
+    magic2 = int()
+    defense2 = int()
+    
+    def initialize(self):
+        '''Using the current teams update the battle stats.'''
+        health1 = magic1 = defense1 = 0
+        for hero in team1:
+            heath1 += hero.h_p
+            magic1 += hero.m_p
+            defense1 += hero.defense
+        health2 = magic2 = defense2 = 0
+        for hero in team2:
+            health1 += hero.h_p
+            magic1 += hero.m_p
+            defense1 += hero.defense
+
+    def submit_moves(self, user, moves):
+        '''Add moves to the appropriate move list, if this is the last move set
+        needed complete the turn and fillout the tasks.'''
+        if user == self.player1 and 0 <= len(self.moves2) - len(self.moves1) < 2:
+            moves1.append(moves)
+        elif user == self.player2 and 0 <= len(self.moves2) - len(self.moves1) < 2:
+            moves2.append(moves)
+        else:
+            raise Exception("Invalid user")
+        if len(self.moves2) == len(self.moves1):
+        for team in teams:
+            for hero in team.players:
+                tasks.append(
+                if choice == 2:
+                    hero.defend(team)
+                else:
+                    while target not in range(1, len(teams)+1):
+                        target = input("Target (1 red, 2 blu)")
+                if choice == 1:
+                    return (hero.agility, hero.attack, teams[target-1])
+                elif choice == 3:
+                    team.m_p -= hero.ability.cost
+                    return (hero.agility, hero.ability.affect, teams[target-1])
+                )
+        tasks.sort()
+        for task in tasks:
+            print task[1], task[2]
+            task[1].__call__(task[2])
+        for team in teams:
+            team.reset()
 def battle(teams):
     '''A simple battle simulation'''
     while not end_game(teams):
