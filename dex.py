@@ -134,64 +134,116 @@ def get_user_choice(hero, team, teams):
 class Battle(db.Model):
     '''A game model that provides functions to alter the state.'''
     player1 = db.UserProperty(required=True)
-    player2 = db.UserProperty(required=True)
+    #max players == 4
+    #min players 1(waiting) 2(playable)
+    players = db.ListProperty(UserPropery)
     team1 = db.ListProperty(Hero)
     team2 = db.ListProperty(Hero)
+    team3 = db.ListProperty(Hero)
+    team4 = db.ListProperty(Hero)
     moves1 = db.StringListProperty()
     moves2 = db.StringListProperty()
-    tasks = db.StringPropery()
+    moves3 = db.StringListProperty()
+    moves4 = db.StringListProperty()
+    tasks = db.StringListPropery()
     
     # Battle stats
-    health1 = int()
-    magic1 = int()
-    defense1 = int()
-    health2 = int()
-    magic2 = int()
-    defense2 = int()
+    health = db.ListProperty(int)
+    magic = db.ListProperty(int)
+    defense = db.ListProperty(int)
     
     def initialize(self):
         '''Using the current teams update the battle stats.'''
-        health1 = magic1 = defense1 = 0
-        for hero in team1:
-            heath1 += hero.h_p
-            magic1 += hero.m_p
-            defense1 += hero.defense
-        health2 = magic2 = defense2 = 0
-        for hero in team2:
-            health1 += hero.h_p
-            magic1 += hero.m_p
-            defense1 += hero.defense
-
-    def submit_moves(self, user, moves):
+        health = [0] * len(players)
+        magic = [0] * len(players)
+        defense = [0] * len(players)
+        teams = [self.team1, self.team2, self.team3, self.team4]
+        i = 0
+        for team in teams[:len(players)]:
+            for hero in team:
+                heath[i] += hero.h_p
+                magic[i] += hero.m_p
+                defense[i] += hero.defense
+            i += 1
+        self.health = health
+        self.magic = magic
+        self.defense = defense
+    
+    def get_moves(self, i):
+        '''' Getter for the flat database fields '''
+        i = int(i)
+        if i == 1:
+            return self.moves1
+        elif i == 2:
+            return self.moves2
+        elif i == 3:
+            return self.moves3
+        elif i == 4:
+            return self.moves4
+        else:
+            raise Exception("Index out of range, only moves[1...4]")
+    def get_team(self, i):
+        '''' Getter for the flat database fields '''
+        i = int(i)
+        if i == 1:
+            return self.team1
+        elif i == 2:
+            return self.team2
+        elif i == 3:
+            return self.team3
+        elif i == 4:
+            return self.team4
+        else:
+            raise Exception("Index out of range, only team[1...4]")
+    
+    def submit_moves(self, user, commands):
         '''Add moves to the appropriate move list, if this is the last move set
         needed complete the turn and fillout the tasks.'''
-        if user == self.player1 and 0 <= len(self.moves2) - len(self.moves1) < 2:
-            moves1.append(moves)
-        elif user == self.player2 and 0 <= len(self.moves2) - len(self.moves1) < 2:
-            moves2.append(moves)
-        else:
+        if user not in self.players:
             raise Exception("Invalid user")
-        if len(self.moves2) == len(self.moves1):
-        for team in teams:
-            for hero in team.players:
-                tasks.append(
-                if choice == 2:
-                    hero.defend(team)
+        moves = self.get_moves(user)
+        if len(moves) > len(self.tasks):
+            raise Exception("User has already submitted a move set this round")
+        bucket = []
+        magic = self.magic[self.players.index[user]
+        for choice, target in commands
+            if 3 < choice < 1 or 1 > target > len(self.players):
+                continue
+            if choice == 1:
+                bucket.append((hero.agility, 1, target-1])
+            elif choice == 2:
+                bucket.append((int.MAX, 2, target - 1))
+            elif choice == 3 and team.m_p > hero.ability.cost:
+                team.m_p -= hero.ability.cost
+                bucket.append((hero.agility, 3, target-1))
+            if len(bucket) >= len(self.get_team(user)):
+                break
+        moves.append(json.encode(bucket))
+        return moves[-1]
+    
+    def finish_round(self):
+        '''All players have submitted their moves now we sort them and update
+        the battle stats.
+        '''
+        moves = [self.get_moves(i)[-1] for i in range(1, len(self.players)+1]
+        teams = [self.get_team(i) for i in range(1, len(self.players)+1]
+        pools = [Team(self.heath[i], self.magic[i], self.defense[i]
+            for i in range(0, len(self.players))]
+        for move, team in zip(moves, teams):
+            tuples = json.decode(moves)
+            for hero, tup in zip(team, tuples):
+                if tup[1] == 1:
+                    call = hero.attack
+                elif tup[1] == 3:
+                    call = hero.ability
                 else:
-                    while target not in range(1, len(teams)+1):
-                        target = input("Target (1 red, 2 blu)")
-                if choice == 1:
-                    return (hero.agility, hero.attack, teams[target-1])
-                elif choice == 3:
-                    team.m_p -= hero.ability.cost
-                    return (hero.agility, hero.ability.affect, teams[target-1])
-                )
+                    call = hero.defend
+                tasks.append((tup[0], call, pools[tup[2]]))
         tasks.sort()
         for task in tasks:
-            print task[1], task[2]
+            print sys.log >> task
             task[1].__call__(task[2])
-        for team in teams:
-            team.reset()
+
 def battle(teams):
     '''A simple battle simulation'''
     while not end_game(teams):
