@@ -1,7 +1,11 @@
 '''Project Dex
 Simplistic multiplayer card-like RPG.
 '''
+import sys
 import ajax
+import gamemodel
+import simplejson
+from google.appengine.ext import db
 
 DEBUG = True
 import random
@@ -136,7 +140,7 @@ class Battle(db.Model):
     player1 = db.UserProperty(required=True)
     #max players == 4
     #min players 1(waiting) 2(playable)
-    players = db.ListProperty(UserPropery)
+    players = db.ListProperty(db.UserPropery)
     team1 = db.ListProperty(Hero)
     team2 = db.ListProperty(Hero)
     team3 = db.ListProperty(Hero)
@@ -146,20 +150,20 @@ class Battle(db.Model):
     moves3 = db.StringListProperty()
     moves4 = db.StringListProperty()
     tasks = db.StringListPropery()
-    
+
     # Battle stats
     health = db.ListProperty(int)
     magic = db.ListProperty(int)
     defense = db.ListProperty(int)
-    
+
     def initialize(self):
         '''Using the current teams update the battle stats.'''
-        health = [0] * len(players)
-        magic = [0] * len(players)
-        defense = [0] * len(players)
+        health = [0] * len(self.players)
+        magic = [0] * len(self.players)
+        defense = [0] * len(self.players)
         teams = [self.team1, self.team2, self.team3, self.team4]
         i = 0
-        for team in teams[:len(players)]:
+        for team in teams[:len(self.players)]:
             for hero in team:
                 heath[i] += hero.h_p
                 magic[i] += hero.m_p
@@ -168,7 +172,7 @@ class Battle(db.Model):
         self.health = health
         self.magic = magic
         self.defense = defense
-    
+
     def get_moves(self, i):
         '''' Getter for the flat database fields '''
         i = int(i)
@@ -195,7 +199,7 @@ class Battle(db.Model):
             return self.team4
         else:
             raise Exception("Index out of range, only team[1...4]")
-    
+
     def submit_moves(self, user, commands):
         '''Add moves to the appropriate move list, if this is the last move set
         needed complete the turn and fillout the tasks.'''
@@ -205,32 +209,39 @@ class Battle(db.Model):
         if len(moves) > len(self.tasks):
             raise Exception("User has already submitted a move set this round")
         bucket = []
-        magic = self.magic[self.players.index[user]
-        for choice, target in commands
+        magic = self.magic[self.players.index[user]]
+        hero = iter(self.get_team(user))
+        for choice, target in commands:
             if 3 < choice < 1 or 1 > target > len(self.players):
+                hero.next()
                 continue
             if choice == 1:
-                bucket.append((hero.agility, 1, target-1])
+                bucket.append((hero.agility, 1, target-1))
             elif choice == 2:
-                bucket.append((int.MAX, 2, target - 1))
-            elif choice == 3 and team.m_p > hero.ability.cost:
-                team.m_p -= hero.ability.cost
+                bucket.append((sys.maxint, 2, target - 1))
+            elif choice == 3 and magic > hero.ability.cost:
+                magic -= hero.ability.cost
                 bucket.append((hero.agility, 3, target-1))
             if len(bucket) >= len(self.get_team(user)):
                 break
-        moves.append(json.encode(bucket))
+            hero.next()
+
+        moves.append(json.dumps(bucket))
         return moves[-1]
-    
+
     def finish_round(self):
         '''All players have submitted their moves now we sort them and update
         the battle stats.
         '''
-        moves = [self.get_moves(i)[-1] for i in range(1, len(self.players)+1]
-        teams = [self.get_team(i) for i in range(1, len(self.players)+1]
-        pools = [Team(self.heath[i], self.magic[i], self.defense[i]
+        moves = [self.get_moves(i)[-1]
+            for i in range(1, len(self.players)+1)]
+        teams = [self.get_team(i)
+            for i in range(1, len(self.players)+1)]
+        pools = [Team(self.health[i], self.magic[i], self.defense[i])
             for i in range(0, len(self.players))]
+        tasks = []
         for move, team in zip(moves, teams):
-            tuples = json.decode(moves)
+            tuples = json.decode(move)
             for hero, tup in zip(team, tuples):
                 if tup[1] == 1:
                     call = hero.attack
@@ -243,6 +254,7 @@ class Battle(db.Model):
         for task in tasks:
             print sys.log >> task
             task[1].__call__(task[2])
+        self.tasks.append(tasks)
 
 def battle(teams):
     '''A simple battle simulation'''
@@ -302,7 +314,7 @@ class DexBattle(ajax.AjaxHandler):
                     self.response.out.write(
                         "Cannot invite yourself to a game")
                     return
-            except: usernotfoundError:
+            except usernotfoundError:
                 newGame.invitee = invitee
 
         newGame.put()
@@ -319,16 +331,22 @@ class DexBattle(ajax.AjaxHandler):
                     self.error(http.HTTP_FORBIDDEN)
             elif command == 'move':
                 #JSON encoded list of decisions.
-                moves = self.request.get('moves')
+                moves = self.request.post('moves')
                 victor = None
                 is_resignation = False
-                if move:
+                if moves:
                     victor = get_player_number(game_to_modify, user, True)
                     is_resignation = True
-                elif move == 'draw':
+                elif moves == 'draw':
                     victor = 0
                 if not game_to_modify.update(user, move, timer, victor):
                     self.error(http.HTTP_FORBIDDEN)
                 else:
-                    if game_to_modify.game_type == gamemodel.GAME_TYPE
-
+                    if game_to_modify.game_type == gamemodel.GAME_TYPE:
+                        pass
+    def request(self):
+        pass
+    def _get_game_to_modify(self):
+        pass
+    def error(self):
+        pass
