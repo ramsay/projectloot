@@ -209,6 +209,12 @@ class Battle(db.Model):
     # Various strings are valid: chess, blitz-5, blitz-10
     game_type = db.StringProperty(required=True)
 
+    # timestamp is updated on create
+    created = db.DateTimeProperty(auto_now_add=True)
+
+    # timestamp is updated on every refresh
+    last_modified = db.DateTimeProperty(auto_now=True)
+
     def initialize(self):
         '''Using the current teams update the battle stats.'''
         health = [0] * len(self.players)
@@ -408,3 +414,82 @@ class DexHandler(ajax.AjaxHandler):
 
     def error(self):
         pass
+
+
+def battles_by_user_list(user):
+    """ Returns a list of non-completed games that involve this user. Have to
+    do two separate queries, since we can't query either player1 OR player2
+    """
+    battles1 = Battle.gql("WHERE player1 = :user AND status < :status",
+        user=user, status=gamemodel.GAME_STATUS_COMPLETE)
+    battles2 = Battle.gql("WHERE players = :user AND status < :status",
+        user=user, status=gamemodel.GAME_STATUS_COMPLETE)
+    result = filter(filter_expired_battles, list(battles1) + list(battles2))
+    result.sort(key=lambda obj: obj.last_modified, reverse=True)
+    return result
+
+
+def filter_expired_battles(gameObj):
+  """ Checks the date of the game - if it is expired, deletes it and
+  returns false.
+  """
+  elapsed = time.time() - time.mktime(gameObj.last_modified.timetuple())
+  # Games with no moves expire after a week
+  if ((not gameObj.moves1 or (len(gameObj.moves1) == 0)) and
+      (elapsed >= gamemodel.ABANDONED_GAME_DURATION)):
+    gameObj.delete()
+    return False
+
+  # Untimed games don't expire currently
+  if gameObj.game_type == gamemodel.GAME_TYPE_CHESS:
+    return True
+
+  # OK, we're a timed game. If we're an open game (nobody has joined yet) we
+  # expire after 15 minutes.
+  if gameObj.status == gamemodel.GAME_STATUS_OPEN:
+    if elapsed > gamemodel.OPEN_GAME_EXPIRATION:
+      gameObj.delete()
+      return False
+    else:
+      return True
+
+  # OK, there are moves in this game. Calculate whose turn it is, how long since
+  # their last move, and whether the game should be over or not. This is
+  # slightly dangerous since games could be prematurely ended if the times on
+  # the servers are out of sync, so we give the user a couple of minutes of
+  # leeway before terminating it.
+  if gameObj.whose_turn() == gameObj.player1_color:
+    remaining = gameObj.player1_time
+  else:
+    remaining = gameObj.player2_time
+  if elapsed < (remaining/1000 + gamemodel.TIMED_GAME_BUFFER):
+    # Game hasn't expired yet
+    return True
+
+  # OK, this game is expiring - if the game only has a few moves, we'll just
+  # delete it. Otherwise, we'll force a timeout for the player who abandoned
+  # it.
+  if gameObj.moves1 and (len(gameObj.moves1) > gamemodel.MAX_MOVES_FOR_DELETION):
+    turn = gameObj.whose_turn()
+    if turn == gameObj.player1_color:
+      # player 1 must lose
+      loser = gameObj.player1
+    else:
+      loser = gameObj.player2
+    # Set the time as expired for the poor loser
+    gameObj.update(loser, timer=0)
+  else:
+    gameObj.delete()
+  return False
+
+def public_battle_list():
+  """ Returns a list of open and public active games
+  """
+  games = Battle.gql("WHERE status = :status"
+                   " ORDER BY last_modified DESC LIMIT 25",
+                   status=gamemodel.GAME_STATUS_OPEN)
+
+  games2 = Battle.gql("WHERE status = :status AND public=:public"
+                    " ORDER BY last_modified DESC LIMIT 25",
+                    status=gamemodel.GAME_STATUS_ACTIVE, public=True)
+  return filter(filter_expired_battles, list(games) + list(games2))
