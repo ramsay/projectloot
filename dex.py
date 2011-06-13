@@ -6,6 +6,7 @@ import ajax
 import gamemodel
 import simplejson
 from google.appengine.ext import db
+from custom_db import JsonProperty
 
 DEBUG = True
 import random
@@ -160,13 +161,13 @@ def get_user_choice(hero, team, teams):
 class Battle(db.Model):
     '''A game model that provides functions to alter the state.'''
     player1 = db.UserProperty(required=True)
-    #max players == 4
-    #min players 1(waiting) 2(playable)
-    players = db.ListProperty(db.UserProperty)
-    team1 = db.ListProperty(Hero)
-    team2 = db.ListProperty(Hero)
-    team3 = db.ListProperty(Hero)
-    team4 = db.ListProperty(Hero)
+    #max_players = 4
+    #min_players = 1 #(waiting) 2(playable)
+    players = db.StringListProperty()
+    team1 = db.JsonProperty()
+    team2 = db.JsonProperty()
+    team3 = db.JsonProperty()
+    team4 = db.JsonProperty()
     moves1 = db.StringListProperty()
     moves2 = db.StringListProperty()
     moves3 = db.StringListProperty()
