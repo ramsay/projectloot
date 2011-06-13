@@ -112,7 +112,7 @@ def main():
          ('/history', HistoryPage),
          ('/game/.*', GamePage),
          ('/lobby_ajax.*', lobby_ajax.LobbyHandler),
-         ('/game_ajax.*', game_ajax.GameHandler)
+         ('/game_ajax.*', game_ajax.GameHandler),
          ('/dex_ajax.*', dex.DexHandler)],
          debug=True)
     util.run_wsgi_app(application)
