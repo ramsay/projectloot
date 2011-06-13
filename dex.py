@@ -164,15 +164,15 @@ class Battle(db.Model):
     #max_players = 4
     #min_players = 1 #(waiting) 2(playable)
     players = db.StringListProperty()
-    team1 = db.JsonProperty()
-    team2 = db.JsonProperty()
-    team3 = db.JsonProperty()
-    team4 = db.JsonProperty()
+    team1 = JsonProperty()
+    team2 = JsonProperty()
+    team3 = JsonProperty()
+    team4 = JsonProperty()
     moves1 = db.StringListProperty()
     moves2 = db.StringListProperty()
     moves3 = db.StringListProperty()
     moves4 = db.StringListProperty()
-    tasks = db.StringListPropery()
+    tasks = db.StringListProperty()
 
     # Battle stats
     health = db.ListProperty(int)
