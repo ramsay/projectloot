@@ -10,6 +10,7 @@ from google.appengine.ext import db
 DEBUG = True
 import random
 
+
 class Ability(object):
     '''Base Ability class. Abilities are the one special ability that each hero
     has in addition to Attack and Defend. These general expend MP and add
@@ -17,26 +18,33 @@ class Ability(object):
     will be called on a specific target.'''
     description = "A detailed description of what the ability does"
     cost = 1
+
     def affect(self, target):
         '''Empty effect method, it's up to the '''
         raise NotImplementedError(repr(self) + repr(target))
+
     def __repr__(self):
         return self.__class__.__name__ + "(" + str(self.cost) + ")"
+
 
 class Heal(Ability):
     '''A simple heal ability for testing purposes.'''
     description = "Use primitive medical skills"
     cost = 2
+
     def affect(self, target):
         '''Raise targets HP by (1,5)'''
         target.h_p += random.randint(1, 5)
 
+
 class Roar(Ability):
     '''A simple status effect ability for testing.'''
     description = "Strike fear in the hearts of foes"
+
     def affect(self, target):
         '''Reduce targets defense by 1'''
         target.defense -= 1
+
 
 class Hero(object):
     '''Base battle piece class'''
@@ -46,8 +54,10 @@ class Hero(object):
     strength = 1
     agility = 1
     ability = Ability()
+
     def __init__(self, name):
         self.name = name
+
     def attack(self, target):
         '''Use primitive physical force to hurt or maim one's target. If the
         target has defendors, we subtract the target's defense pool from our
@@ -60,27 +70,34 @@ class Hero(object):
         if dmg > 0.0:
             target.h_p -= dmg
         return dmg
+
     def defend(self, target):
         '''Add this Hero to the target's defense team. While on defense we
         use the team's pooled defense stat. After each physical attack a
         `random` defendor is removed.'''
         target.defendors.append(self)
+
     def __repr__(self):
         return self.name + " the " + self.__class__.__name__
+
 
 class WeakMage(Hero):
     '''A sample mage class hero'''
     agility = 2
     m_p = 2
     ability = Heal()
-    def __init__(self, name = "Medic!"):
+
+    def __init__(self, name="Medic!"):
         Hero.__init__(self, name)
+
 
 class WeakFighter(Hero):
     '''A sample fighting class hero'''
     ability = Roar()
-    def __init__(self, name = "Brave"):
+
+    def __init__(self, name="Brave"):
         Hero.__init__(self, name)
+
 
 class Team(object):
     '''This is the battle team object, it holds the hp, mp, and defense pools.
@@ -88,6 +105,7 @@ class Team(object):
     h_p = 0
     m_p = 0
     defense = 0
+
     def __init__(self, name, players):
         self.name = name
         self.players = players
@@ -96,11 +114,13 @@ class Team(object):
             self.m_p += player.strength
             self.defense += player.defense
         self.defendors = []
+
     def reset(self):
         '''Generally called at the end or beginning of each round. Resets
         various states that are in the scope of a round, such as the heroes
         that are defending.'''
         self.defendors = []
+
 
 def end_game(teams):
     '''Tests all teams for the simple end game scenario where at least one
@@ -109,6 +129,7 @@ def end_game(teams):
         if team.h_p < 1:
             return True
     return False
+
 
 def get_user_choice(hero, team, teams):
     '''Gets user input for a specific hero on a team this round'''
@@ -127,13 +148,14 @@ def get_user_choice(hero, team, teams):
     if choice == 2:
         hero.defend(team)
     else:
-        while target not in range(1, len(teams)+1):
+        while target not in range(1, len(teams) + 1):
             target = input("Target (1 red, 2 blu)")
     if choice == 1:
         return (hero.agility, hero.attack, teams[target-1])
     elif choice == 3:
         team.m_p -= hero.ability.cost
         return (hero.agility, hero.ability.affect, teams[target-1])
+
 
 class Battle(db.Model):
     '''A game model that provides functions to alter the state.'''
@@ -186,6 +208,7 @@ class Battle(db.Model):
             return self.moves4
         else:
             raise Exception("Index out of range, only moves[1...4]")
+
     def get_team(self, i):
         '''' Getter for the flat database fields '''
         i = int(i)
@@ -234,9 +257,9 @@ class Battle(db.Model):
         the battle stats.
         '''
         moves = [self.get_moves(i)[-1]
-            for i in range(1, len(self.players)+1)]
+            for i in range(1, len(self.players) + 1)]
         teams = [self.get_team(i)
-            for i in range(1, len(self.players)+1)]
+            for i in range(1, len(self.players) + 1)]
         pools = [Team(self.health[i], self.magic[i], self.defense[i])
             for i in range(0, len(self.players))]
         tasks = []
@@ -256,6 +279,7 @@ class Battle(db.Model):
             task[1].__call__(task[2])
         self.tasks.append(tasks)
 
+
 def battle(teams):
     '''A simple battle simulation'''
     while not end_game(teams):
@@ -274,14 +298,17 @@ def battle(teams):
     standings.reverse()
     return standings
 
+
 def print_game_end(results):
     '''Prints out a friendly representation of the battle results'''
     print "The game has ended our winner is ", results[0][1]
-    print "With a lead of ", results[0][0]-results[1][0], " over ",
+    print "With a lead of ", results[0][0] - results[1][0], " over ",
     print results[1][1]
+
 
 class DexBattle(ajax.AjaxHandler):
     ''' Converting dex.battle into a gae request hnadler '''
+
     def Get(self, user):
         ''' Our handler for HTTP GET requests, copying from GAE demo
         "blitz" '''
@@ -299,7 +326,10 @@ class DexBattle(ajax.AjaxHandler):
 
         color = self.request.get("color")
         if color and color != "random":
-            color = gamemodel.WHITE if color.lower() == "white" else gamemodel.BLACK
+            if color.lower() == "white":
+                color = gamemodel.WHITE
+            else:
+                gamemodel.BLACK
         else:
             color = random.getrandbits(1)
 
@@ -344,9 +374,12 @@ class DexBattle(ajax.AjaxHandler):
                 else:
                     if game_to_modify.game_type == gamemodel.GAME_TYPE:
                         pass
+
     def request(self):
         pass
+
     def _get_game_to_modify(self):
         pass
+
     def error(self):
         pass
