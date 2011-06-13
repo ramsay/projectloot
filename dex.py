@@ -1,11 +1,27 @@
 '''Project Dex
 Simplistic multiplayer card-like RPG.
 '''
+
+import os
+import random
+import re
+import time
+import urllib
+import wsgiref.handlers
+
+import chat
+
+import simplejson
+import ajax
+import gamemodel
+import http
+
 import sys
 import ajax
 import gamemodel
 import simplejson
 from google.appengine.ext import db
+from google.appengine.api import users
 from custom_db import JsonProperty
 
 DEBUG = True
@@ -179,6 +195,20 @@ class Battle(db.Model):
     magic = db.ListProperty(int)
     defense = db.ListProperty(int)
 
+    # Properties of blitz game model
+
+    # If True, anyone can view this game
+    public = db.BooleanProperty(default=False)
+
+    # Description of the status of this game. See the GAME_STATUS values
+    status = db.IntegerProperty(required=True)
+
+    # The index of the victor (1 = player 1, 2 = player 2, 0 = draw)
+    victor = db.IntegerProperty()
+
+    # Various strings are valid: chess, blitz-5, blitz-10
+    game_type = db.StringProperty(required=True)
+
     def initialize(self):
         '''Using the current teams update the battle stats.'''
         health = [0] * len(self.players)
@@ -313,7 +343,7 @@ class DexHandler(ajax.AjaxHandler):
     def Get(self, user):
         ''' Our handler for HTTP GET requests, copying from GAE demo
         "blitz" '''
-        self.response.header['Content-Type'] = 'text/javascript'
+        self.response.headers['Content-Type'] = 'text/javascript'
         path_list = self.request.path.strip('/').split('/')
 
     def Put(self, user):
@@ -324,18 +354,15 @@ class DexHandler(ajax.AjaxHandler):
         if invitee:
             status = gamemodel.GAME_STATUS_INVITED
         game_type = self.request.get("game_type")
+        public = False
+        if (self.request.get("public") and
+            self.request.get("public").lower() == "true"):
+            public = True
+        invitee = self.request.get("email")
 
-        color = self.request.get("color")
-        if color and color != "random":
-            if color.lower() == "white":
-                color = gamemodel.WHITE
-            else:
-                gamemodel.BLACK
-        else:
-            color = random.getrandbits(1)
-
-        newGame = gamemodel.Game(player1=player1, public=public,
-            status=status, game_type=game_type, player1_color=color)
+        newGame = Battle(
+            player1=player1, public=public,
+            status=status, game_type=game_type)
 
         if invitee:
             try:
@@ -375,9 +402,6 @@ class DexHandler(ajax.AjaxHandler):
                 else:
                     if game_to_modify.game_type == gamemodel.GAME_TYPE:
                         pass
-
-    def request(self):
-        pass
 
     def _get_game_to_modify(self):
         pass
