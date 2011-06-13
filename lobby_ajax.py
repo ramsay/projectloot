@@ -45,7 +45,7 @@ class LobbyHandler(ajax.AjaxHandler):
 
         The URL format is:
            GET /lobby/useremail/<opt_msgid>
-           
+
         Fetches a list of games for the passed user.
 
         If the opt_msgid is present, we return a list of chats that were sent
@@ -74,7 +74,7 @@ class LobbyHandler(ajax.AjaxHandler):
             ]
           }
         }
-        
+
     """
     self.response.headers['Content-Type'] = 'text/javascript'
     # Parse the path into distinct entities
@@ -88,7 +88,7 @@ class LobbyHandler(ajax.AjaxHandler):
         except ValueError:
           # Just ignore this and leave msgid as 0
           msgid = 0
-            
+
       # Let the lobby know the user is here
       lobby.in_lobby(user)
 
@@ -140,7 +140,7 @@ class LobbyHandler(ajax.AjaxHandler):
         self.error(http.HTTP_UNAUTHORIZED)
         self.response.out.write('Permissions error for ' + email)
     return None
-    
+
   def get_player_list(self):
     """ Get a list of strings representing all players in the lobby
     """
@@ -163,14 +163,22 @@ class LobbyHandler(ajax.AjaxHandler):
     """
     # First, get all the user's games
     user_games = gamemodel.games_by_user_list(user)
-    
-    # Now get list of open and active games,  sorted to have the open games 
+
+    # Now get list of open and active games,  sorted to have the open games
     # first
     active_games = gamemodel.public_game_list()
-    # Filter to just have the ones that don't involve the user so we don't have 
+    # Filter to just have the ones that don't involve the user so we don't have
     # duplicates
     active_games = filter(lambda gameObj: gameObj.player1 != user and gameObj.player2 != user, active_games)
-    
+
+    # Do the same for dex battles
+    import dex
+    user_battles = dex.battles_by_user_list(user)
+    active_battles = dex.public_battle_list()
+    active_games.extend(
+        filter(
+            lambda gameObj: gameObj.player1 != user and gameObj.players != user, active_games))
+
     # Now render these in dict representation
-    return map(lambda gameObj: gameObj.to_dict(user), 
+    return map(lambda gameObj: gameObj.to_dict(user),
                list(user_games) + list(active_games))
