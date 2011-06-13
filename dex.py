@@ -162,7 +162,7 @@ class Battle(db.Model):
     player1 = db.UserProperty(required=True)
     #max players == 4
     #min players 1(waiting) 2(playable)
-    players = db.ListProperty(db.UserPropery)
+    players = db.ListProperty(db.UserProperty)
     team1 = db.ListProperty(Hero)
     team2 = db.ListProperty(Hero)
     team3 = db.ListProperty(Hero)
@@ -306,7 +306,7 @@ def print_game_end(results):
     print results[1][1]
 
 
-class DexBattle(ajax.AjaxHandler):
+class DexHandler(ajax.AjaxHandler):
     ''' Converting dex.battle into a gae request hnadler '''
 
     def Get(self, user):
