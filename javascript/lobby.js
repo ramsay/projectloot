@@ -289,8 +289,13 @@ var lobby = {
 
   uploadGameInvite: function(offer) {
     $(".busy").show();
+    url_request = "/game_ajax?" + offer;
+    re = RegExp('game_type=dex', 'i');
+    if (str.search(re, offer) != -1) {
+      url_request = "/dex_ajax?" + offer;
+    }
     var options = {
-      url: "/game_ajax?" + offer,
+      url: url_request,
       // Need to send something up in the PUT body, as some proxies reject
       // PUT and POST requests with empty bodies
       data: offer,
