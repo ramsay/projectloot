@@ -291,7 +291,7 @@ var lobby = {
     $(".busy").show();
     url_request = "/game_ajax?" + offer;
     re = RegExp('game_type=dex', 'i');
-    if (str.search(re, offer) != -1) {
+    if (offer.search(re) != -1) {
       url_request = "/dex_ajax?" + offer;
     }
     var options = {
