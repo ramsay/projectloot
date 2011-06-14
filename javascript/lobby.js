@@ -42,7 +42,9 @@ var lobby = {
   msgId: 0,
   // The games the user doesn't want to be prompted about
   ignoreMap: {},
-
+  // The games that are dex battles.
+  dexMap: {}
+  
   forceRefresh: function() {
     // If there's not already a refresh in process, refresh immediately.
     if (lobby.refreshTimer) {
@@ -98,6 +100,9 @@ var lobby = {
           (game.opponent ? game.opponent : "&nbsp;") + "</td><td>" +
           (game.time_limit ?  (game.time_limit + " min") : "untimed") +
            "</td><td>";
+        if (game.type == 'dex') {
+          lobby.dexMap[game.key] = true;
+        }
         // OK, figure out what actions we have on this game. Choices are:
         // 1) Delete - if is_participant && opponent = null
         // 2) Join - if !is_participant && opponent = null
@@ -203,6 +208,9 @@ var lobby = {
         lobby.forceRefresh();
       }
     }
+    if (lobby.dexMap[gameKey]) {
+      oprtions.url = "/dex_ajax/" + gameKey + "/join";
+    }
     $.ajax(options);
   },
 
@@ -214,6 +222,9 @@ var lobby = {
       type: "DELETE",
       success: lobby.forceRefresh
     };
+    if (lobby.dexMap[gameKey]) {
+      options.url = "/dex_ajax/" + gameKey;
+    }
     $.ajax(options);
   },
 
@@ -289,13 +300,8 @@ var lobby = {
 
   uploadGameInvite: function(offer) {
     $(".busy").show();
-    url_request = "/game_ajax?" + offer;
-    re = RegExp('game_type=dex', 'i');
-    if (offer.search(re) != -1) {
-      url_request = "/dex_ajax?" + offer;
-    }
     var options = {
-      url: url_request,
+      url: "/game_ajax?" + offer,
       // Need to send something up in the PUT body, as some proxies reject
       // PUT and POST requests with empty bodies
       data: offer,
@@ -303,7 +309,10 @@ var lobby = {
       error: blitz.retryOnFail,
       success: lobby.forceRefresh
     };
-
+    re = RegExp('game_type=dex', 'i');
+    if (offer.search(re) != -1) {
+      options.url = "/dex_ajax?" + offer;
+    }
     $.ajax(options);
     $.modal.close();
   },

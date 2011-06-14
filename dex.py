@@ -380,7 +380,7 @@ class Battle(db.Model):
             result['victor'] = self.victor
         else:
             result['round'] = len(self.moves1) + 1
-        result['game_type'] = "dex"
+        result['type'] = "dex"
         return result
 
     def user_is_participant(self, user):
