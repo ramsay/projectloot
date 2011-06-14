@@ -316,6 +316,76 @@ class Battle(db.Model):
             task[1].__call__(task[2])
         self.tasks.append(tasks)
 
+    def to_dict(self, user):
+        """ Converts a game object to a dict with the following properties for
+        ease of json-ification:
+        {'creator': "player 1",    // The nickname for player 1
+         'opponent': "player 2",   // Omitted if game is open/joinable
+         'time_limit': 5,          // Currently only 5 or 10 is supported,
+                                   //   or omitted if untimed game
+         'player1_time': 1234,     // Time bank in msecs, omitted if untimed
+         'player2_time': 5678,     // Time bank in msecs, omitted if untimed
+         'is_creator' : true       // True if the player is the game creator
+                                   //   (e.g. player == player1)
+         'is_invitee': true,       // present if user is the invitee and
+                                   //   status=GAME_STATUS_INVITED
+         'is_participant': true,   // omitted if user not a participant
+         'status': 0/1/2/3         // open, invited, active, complete
+         'victor': 0/1/2           // draw, player1, player2
+         'can_delete' : true,      // true if 'is_participant' and #
+                                   // moves < 2
+         'whose_turn' : 0/1        // 0 = white, 1 = black
+        }
+        """
+        result = {}
+        result['creator'] = self.player1.nickname()
+        result['status'] = self.status
+        result['key'] = str(self.key())
+
+        # Set the opponent to the appropriate value. We send nothing down if
+        # this is an unclaimed open game
+        if self.status >= gamemodel.GAME_STATUS_ACTIVE:
+            # Game is active or completed
+            result['opponent'] = self.player2.nickname()
+        elif self.status == gamemodel.GAME_STATUS_INVITED:
+            if self.players:
+                result['opponents'] = map(self.players, p.nickname())
+            else:
+                result['opponents'] = self.invitees
+
+        # Send down the time limit appropriate to the game type
+        if self.game_type == gamemodel.GAME_TYPE_BLITZ_5:
+            result['time_limit'] = 5
+        elif self.game_type == gamemodel.GAME_TYPE_BLITZ_10:
+            result['time_limit'] = 10
+
+        # If the user is a participant, send down information about their
+        # permissions and status
+        if self.user_is_participant(user):
+            result['is_participant'] = True
+            self.moves1 = list(self.moves1)
+            result['can_delete'] = len(self.moves1) <= 2
+            if user == self.player1:
+                result['is_creator'] = True
+            elif self.status == gamemodel.GAME_STATUS_INVITED:
+                result['is_invitee'] = True
+
+        # If this game has a time limit, send down the time status of each
+        # player
+        if 'time_limit' in result:
+            result['player1_time'] = self.player1_time
+            result['player2_time'] = self.player2_time
+
+        if self.status == gamemodel.GAME_STATUS_COMPLETE:
+            result['victor'] = self.victor
+        else:
+            result['round'] = len(self.moves1) + 1
+        result['game_type'] = "dex"
+        return result
+
+    def user_is_participant(self, user):
+        return self.player1 == user or self.players == user
+
 
 def battle(teams):
     '''A simple battle simulation'''
