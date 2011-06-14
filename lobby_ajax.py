@@ -22,6 +22,7 @@ import time
 
 import datetime
 
+import dex
 import lobby
 import gamemodel
 import chat
@@ -146,8 +147,7 @@ class LobbyHandler(ajax.AjaxHandler):
     """
     # For brevity's sake, only return the top 50 players
     players = lobby.lobby_list(50)
-    return map(lambda obj:obj.player.nickname(), players)
-
+    return map(lambda obj: obj.player.nickname(), players)
 
   def get_game_list(self, user):
     """ Get a list of dict objects corresponding to the active games.
@@ -169,16 +169,21 @@ class LobbyHandler(ajax.AjaxHandler):
     active_games = gamemodel.public_game_list()
     # Filter to just have the ones that don't involve the user so we don't have
     # duplicates
-    active_games = filter(lambda gameObj: gameObj.player1 != user and gameObj.player2 != user, active_games)
+    active_games = filter(
+        lambda gameObj: gameObj.player1 != user and gameObj.player2 != user,
+        active_games)
 
     # Do the same for dex battles
-    import dex
     user_battles = dex.battles_by_user_list(user)
     active_battles = dex.public_battle_list()
-    active_games.extend(
-        filter(
-            lambda gameObj: gameObj.player1 != user and gameObj.players != user, active_games))
+    active_battles = filter(
+        lambda gameObj:
+            gameObj.player1 != user and gameObj.players != user,
+        active_battles)
 
     # Now render these in dict representation
     return map(lambda gameObj: gameObj.to_dict(user),
-               list(user_games) + list(active_games))
+               list(user_games)
+               + list(active_games)
+               + list(user_battles)
+               + list(active_battles))
