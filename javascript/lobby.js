@@ -190,6 +190,10 @@ var lobby = {
     $('#goGame').attr({ref: key});
   },
 
+  goDex: function(gameKey) {
+    blitz.clickHandlers.goDex(gameKey);
+  },
+  
   goGame: function(gameKey) {
     blitz.clickHandlers.goGame(gameKey);
   },
@@ -210,6 +214,7 @@ var lobby = {
     }
     if (lobby.dexMap[gameKey]) {
       options.url = "/dex_ajax/" + gameKey + "/join";
+      options.success = function() {lobby.goDex(gameKey); };
     }
     $.ajax(options);
   },
