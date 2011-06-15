@@ -18,8 +18,9 @@ import sys
 
 from google.appengine.api import users
 from google.appengine.ext import db
+from google.appengine.ext.db import polymodel
 
-class Game(db.Model):
+class Game(polymodel.PolyModel):
   """ Our DB representation of a game - includes the type of the game, the
       players, public visibility, etc
   """

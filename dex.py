@@ -2,21 +2,11 @@
 Simplistic multiplayer card-like RPG.
 '''
 
-import os
-import random
-import re
+
 import time
-import urllib
-import wsgiref.handlers
-
-import chat
-
-import simplejson
-import ajax
-import gamemodel
+import sys
 import http
 
-import sys
 import ajax
 import gamemodel
 import simplejson
@@ -174,20 +164,13 @@ def get_user_choice(hero, team, teams):
         return (hero.agility, hero.ability.affect, teams[target-1])
 
 
-class Battle(db.Model):
+class Battle(gamemodel.Game):
     '''A game model that provides functions to alter the state.'''
-    player1 = db.UserProperty(required=True)
     #max_players = 4
     #min_players = 1 #(waiting) 2(playable)
-    players = db.StringListProperty()
-    team1 = JsonProperty()
-    team2 = JsonProperty()
-    team3 = JsonProperty()
-    team4 = JsonProperty()
+    teams = JsonProperty()
     moves1 = db.StringListProperty()
     moves2 = db.StringListProperty()
-    moves3 = db.StringListProperty()
-    moves4 = db.StringListProperty()
     tasks = db.StringListProperty()
 
     # Battle stats
@@ -195,36 +178,16 @@ class Battle(db.Model):
     magic = db.ListProperty(int)
     defense = db.ListProperty(int)
 
-    # Properties of blitz game model
-
-    # If True, anyone can view this game
-    public = db.BooleanProperty(default=False)
-
-    # Description of the status of this game. See the GAME_STATUS values
-    status = db.IntegerProperty(required=True)
-
-    # The index of the victor (1 = player 1, 2 = player 2, 0 = draw)
-    victor = db.IntegerProperty()
-
-    # Various strings are valid: chess, blitz-5, blitz-10
-    game_type = db.StringProperty(required=True)
-
-    # timestamp is updated on create
-    created = db.DateTimeProperty(auto_now_add=True)
-
-    # timestamp is updated on every refresh
-    last_modified = db.DateTimeProperty(auto_now=True)
-
     def initialize(self):
         '''Using the current teams update the battle stats.'''
+        self.players = [self.player1, self.player2]
         health = [0] * len(self.players)
         magic = [0] * len(self.players)
         defense = [0] * len(self.players)
-        teams = [self.team1, self.team2, self.team3, self.team4]
         i = 0
-        for team in teams[:len(self.players)]:
+        for team in self.teams:
             for hero in team:
-                heath[i] += hero.h_p
+                health[i] += hero.h_p
                 magic[i] += hero.m_p
                 defense[i] += hero.defense
             i += 1
@@ -239,38 +202,21 @@ class Battle(db.Model):
             return self.moves1
         elif i == 2:
             return self.moves2
-        elif i == 3:
-            return self.moves3
-        elif i == 4:
-            return self.moves4
         else:
-            raise Exception("Index out of range, only moves[1...4]")
-
-    def get_team(self, i):
-        '''' Getter for the flat database fields '''
-        i = int(i)
-        if i == 1:
-            return self.team1
-        elif i == 2:
-            return self.team2
-        elif i == 3:
-            return self.team3
-        elif i == 4:
-            return self.team4
-        else:
-            raise Exception("Index out of range, only team[1...4]")
+            raise Exception("Index out of range, only moves[1...2]")
 
     def submit_moves(self, user, commands):
         '''Add moves to the appropriate move list, if this is the last move set
         needed complete the turn and fillout the tasks.'''
         if user not in self.players:
             raise Exception("Invalid user")
-        moves = self.get_moves(user)
+        user_index = self.players.index[user]
+        moves = self.get_moves(user_index)
         if len(moves) > len(self.tasks):
             raise Exception("User has already submitted a move set this round")
         bucket = []
-        magic = self.magic[self.players.index[user]]
-        hero = iter(self.get_team(user))
+        magic = self.magic[user_index]
+        hero = iter(self.teams[user])
         for choice, target in commands:
             if 3 < choice < 1 or 1 > target > len(self.players):
                 hero.next()
@@ -282,7 +228,7 @@ class Battle(db.Model):
             elif choice == 3 and magic > hero.ability.cost:
                 magic -= hero.ability.cost
                 bucket.append((hero.agility, 3, target-1))
-            if len(bucket) >= len(self.get_team(user)):
+            if len(bucket) >= len(self.teams[user_index]):
                 break
             hero.next()
 
@@ -295,12 +241,10 @@ class Battle(db.Model):
         '''
         moves = [self.get_moves(i)[-1]
             for i in range(1, len(self.players) + 1)]
-        teams = [self.get_team(i)
-            for i in range(1, len(self.players) + 1)]
         pools = [Team(self.health[i], self.magic[i], self.defense[i])
             for i in range(0, len(self.players))]
         tasks = []
-        for move, team in zip(moves, teams):
+        for move, team in zip(moves, self.teams):
             tuples = json.decode(move)
             for hero, tup in zip(team, tuples):
                 if tup[1] == 1:
@@ -348,10 +292,10 @@ class Battle(db.Model):
             # Game is active or completed
             result['opponent'] = self.player2.nickname()
         elif self.status == gamemodel.GAME_STATUS_INVITED:
-            if self.players:
-                result['opponents'] = map(self.players, p.nickname())
+            if self.player2:
+                result['opponent'] = self.player2.nickname()
             else:
-                result['opponents'] = self.invitees
+                result['opponent'] = self.invitee
 
         # Send down the time limit appropriate to the game type
         if self.game_type == gamemodel.GAME_TYPE_BLITZ_5:
@@ -384,7 +328,7 @@ class Battle(db.Model):
         return result
 
     def user_is_participant(self, user):
-        return self.player1 == user or self.players == user
+        return self.player1 == user or self.player2 == user
 
 
 def battle(teams):
@@ -437,7 +381,7 @@ class DexHandler(ajax.AjaxHandler):
         invitee = self.request.get("email")
 
         newGame = Battle(
-            player1=player1, public=public,
+            player1=player1, player1_color = 1, public=public,
             status=status, game_type=game_type)
 
         if invitee:
@@ -455,12 +399,12 @@ class DexHandler(ajax.AjaxHandler):
 
     def Post(self, user):
         ''' Update game with move or chat '''
-        game_to_modify = self._get_game_to_modify(user)
-        if game_to_modify:
+        battle_to_modify = self._get_battle_to_modify(user)
+        if battle_to_modify:
             path_list = self.request.path.strip('/').split('/')
             command = path_list[2]
             if command == 'join':
-                result = game_to_modify.join(user)
+                result = battle_to_modify.join(user)
                 if not result:
                     self.error(http.HTTP_FORBIDDEN)
             elif command == 'move':
@@ -469,22 +413,45 @@ class DexHandler(ajax.AjaxHandler):
                 victor = None
                 is_resignation = False
                 if moves:
-                    victor = get_player_number(game_to_modify, user, True)
+                    victor = get_player_number(battle_to_modify, user, True)
                     is_resignation = True
                 elif moves == 'draw':
                     victor = 0
-                if not game_to_modify.update(user, move, timer, victor):
+                if not battle_to_modify.update(user, moves, timer, victor):
                     self.error(http.HTTP_FORBIDDEN)
                 else:
-                    if game_to_modify.game_type == gamemodel.GAME_TYPE:
+                    if battle_to_modify.game_type == gamemodel.GAME_TYPE:
                         pass
 
-    def _get_game_to_modify(self):
-        pass
+    def _get_battle_to_modify(self, user):
+        battle_id = self._get_id_from_path()
+        if battle_id is None:
+            # Invalid delete request (malformed path)
+            self.error(http.HTTP_ERROR)
+            self.response.out.write('Invalid request')
+        else:
+            battle = Battle.get(battle_id)
+            if battle is None:
+                self.error(http.HTTP_GONE)
+            elif not battle.user_can_modify(user):
+                self.error(http.HTTP_FORBIDDEN)
+                self.respone.out.write('cannot modify game')
+            else:
+                return battle
+        return None
 
-    def error(self):
-        pass
+    def _get_id_from_path(self):
+        """ Fetches an ID from the second path element (i.e. expects a URL path
+            of the form /game/<id>)
+        """
+        path_list = self.request.path.strip('/').split('/')
+        if len(path_list) < 2:
+            return None
+        else:
+            return path_list[1]
 
+    def error(self, errors):
+        print self, errors
 
 def battles_by_user_list(user):
     """ Returns a list of non-completed games that involve this user. Have to
@@ -500,66 +467,67 @@ def battles_by_user_list(user):
 
 
 def filter_expired_battles(gameObj):
-  """ Checks the date of the game - if it is expired, deletes it and
-  returns false.
-  """
-  elapsed = time.time() - time.mktime(gameObj.last_modified.timetuple())
-  # Games with no moves expire after a week
-  if ((not gameObj.moves1 or (len(gameObj.moves1) == 0)) and
-      (elapsed >= gamemodel.ABANDONED_GAME_DURATION)):
-    gameObj.delete()
+    """ Checks the date of the game - if it is expired, deletes it and
+    returns false.
+    """
+    elapsed = time.time() - time.mktime(gameObj.last_modified.timetuple())
+    # Games with no moves expire after a week
+    if ((not gameObj.moves1 or (len(gameObj.moves1) == 0)) and
+        (elapsed >= gamemodel.ABANDONED_GAME_DURATION)):
+        gameObj.delete()
+        return False
+
+    # Untimed games don't expire currently
+    if gameObj.game_type == gamemodel.GAME_TYPE_CHESS:
+        return True
+
+    # OK, we're a timed game. If we're an open game (nobody has joined yet) we
+    # expire after 15 minutes.
+    if gameObj.status == gamemodel.GAME_STATUS_OPEN:
+        if elapsed > gamemodel.OPEN_GAME_EXPIRATION:
+            gameObj.delete()
+            return False
+        else:
+            return True
+
+    # OK, there are moves in this game. Calculate whose turn it is, how long
+    # since their last move, and whether the game should be over or not. This is
+    # slightly dangerous since games could be prematurely ended if the times on
+    # the servers are out of sync, so we give the user a couple of minutes of
+    # leeway before terminating it.
+    if gameObj.whose_turn() == gameObj.player1_color:
+        remaining = gameObj.player1_time
+    else:
+        remaining = gameObj.player2_time
+    if elapsed < (remaining/1000 + gamemodel.TIMED_GAME_BUFFER):
+        # Game hasn't expired yet
+        return True
+
+    # OK, this game is expiring - if the game only has a few moves, we'll just
+    # delete it. Otherwise, we'll force a timeout for the player who abandoned
+    # it.
+    if gameObj.moves1 and (len(gameObj.moves1)
+        > gamemodel.MAX_MOVES_FOR_DELETION):
+        turn = gameObj.whose_turn()
+        if turn == gameObj.player1_color:
+            # player 1 must lose
+            loser = gameObj.player1
+        else:
+            loser = gameObj.player2
+        # Set the time as expired for the poor loser
+        gameObj.update(loser, timer=0)
+    else:
+        gameObj.delete()
     return False
 
-  # Untimed games don't expire currently
-  if gameObj.game_type == gamemodel.GAME_TYPE_CHESS:
-    return True
-
-  # OK, we're a timed game. If we're an open game (nobody has joined yet) we
-  # expire after 15 minutes.
-  if gameObj.status == gamemodel.GAME_STATUS_OPEN:
-    if elapsed > gamemodel.OPEN_GAME_EXPIRATION:
-      gameObj.delete()
-      return False
-    else:
-      return True
-
-  # OK, there are moves in this game. Calculate whose turn it is, how long since
-  # their last move, and whether the game should be over or not. This is
-  # slightly dangerous since games could be prematurely ended if the times on
-  # the servers are out of sync, so we give the user a couple of minutes of
-  # leeway before terminating it.
-  if gameObj.whose_turn() == gameObj.player1_color:
-    remaining = gameObj.player1_time
-  else:
-    remaining = gameObj.player2_time
-  if elapsed < (remaining/1000 + gamemodel.TIMED_GAME_BUFFER):
-    # Game hasn't expired yet
-    return True
-
-  # OK, this game is expiring - if the game only has a few moves, we'll just
-  # delete it. Otherwise, we'll force a timeout for the player who abandoned
-  # it.
-  if gameObj.moves1 and (len(gameObj.moves1) > gamemodel.MAX_MOVES_FOR_DELETION):
-    turn = gameObj.whose_turn()
-    if turn == gameObj.player1_color:
-      # player 1 must lose
-      loser = gameObj.player1
-    else:
-      loser = gameObj.player2
-    # Set the time as expired for the poor loser
-    gameObj.update(loser, timer=0)
-  else:
-    gameObj.delete()
-  return False
-
 def public_battle_list():
-  """ Returns a list of open and public active games
-  """
-  games = Battle.gql("WHERE status = :status"
+    """ Returns a list of open and public active games
+    """
+    games = Battle.gql("WHERE status = :status"
                    " ORDER BY last_modified DESC LIMIT 25",
                    status=gamemodel.GAME_STATUS_OPEN)
 
-  games2 = Battle.gql("WHERE status = :status AND public=:public"
+    games2 = Battle.gql("WHERE status = :status AND public=:public"
                     " ORDER BY last_modified DESC LIMIT 25",
                     status=gamemodel.GAME_STATUS_ACTIVE, public=True)
-  return filter(filter_expired_battles, list(games) + list(games2))
+    return filter(filter_expired_battles, list(games) + list(games2))

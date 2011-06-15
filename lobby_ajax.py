@@ -178,7 +178,7 @@ class LobbyHandler(ajax.AjaxHandler):
     active_battles = dex.public_battle_list()
     active_battles = filter(
         lambda gameObj:
-            gameObj.player1 != user and gameObj.players != user,
+            gameObj.player1 != user and gameObj.player2 != user,
         active_battles)
 
     # Now render these in dict representation
