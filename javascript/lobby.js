@@ -209,7 +209,7 @@ var lobby = {
       }
     }
     if (lobby.dexMap[gameKey]) {
-      oprtions.url = "/dex_ajax/" + gameKey + "/join";
+      options.url = "/dex_ajax/" + gameKey + "/join";
     }
     $.ajax(options);
   },
