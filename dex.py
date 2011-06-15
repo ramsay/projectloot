@@ -3,11 +3,13 @@ Simplistic multiplayer card-like RPG.
 '''
 
 
-import time
 import sys
 import http
+import time
+import urllib
 
 import ajax
+import chat
 import gamemodel
 import simplejson
 from google.appengine.ext import db
@@ -166,8 +168,6 @@ def get_user_choice(hero, team, teams):
 
 class Battle(gamemodel.Game):
     '''A game model that provides functions to alter the state.'''
-    #max_players = 4
-    #min_players = 1 #(waiting) 2(playable)
     teams = JsonProperty()
     moves1 = db.StringListProperty()
     moves2 = db.StringListProperty()
@@ -232,7 +232,7 @@ class Battle(gamemodel.Game):
                 break
             hero.next()
 
-        moves.append(json.dumps(bucket))
+        moves.append(simplejson.dumps(bucket))
         return moves[-1]
 
     def finish_round(self):
@@ -245,7 +245,7 @@ class Battle(gamemodel.Game):
             for i in range(0, len(self.players))]
         tasks = []
         for move, team in zip(moves, self.teams):
-            tuples = json.decode(move)
+            tuples = simplejson.decode(move)
             for hero, tup in zip(team, tuples):
                 if tup[1] == 1:
                     call = hero.attack
@@ -362,9 +362,65 @@ class DexHandler(ajax.AjaxHandler):
 
     def Get(self, user):
         ''' Our handler for HTTP GET requests, copying from GAE demo
-        "blitz" '''
+        "blitz"
+        1) game_ajax/list/<useremail> - fetches a list of games for the passed 
+             user in least-recently-modified order (permissions check is done)
+        2) game_ajax//move/<id>/<index> - fetches a list of entries for the game 
+             matching the passed ID. Also takes an optional index URL parameter,
+             in which case we send only entries with an index > t (useful for
+             checking for updates)
+        3) game_ajax/chat/<id>/<index> - fetches a list of chat entries 
+             associated with this game. Takes an optional index param
+        '''
+        # make sure the user is logged in
         self.response.headers['Content-Type'] = 'text/javascript'
+        # Parse the path into distinct entities
         path_list = self.request.path.strip('/').split('/')
+        if len(path_list) < 2 or len(path_list) > 4:
+            # Invalid query
+            self.error(http.HTTP_ERROR)
+            self.response.out.write('Invalid request')
+        elif len(path_list) == 2:
+            # user email passed - make sure they have permission to view the list
+            email = urllib.unquote(path_list[1])
+            if (users.IsCurrentUserAdmin() or user.email() == email):
+                game_list = self._get_game_list(user.email())
+                # Emit list as array of json entities
+                self.response.out.write('[')
+                for game in game_list:
+                    self.emit_game_as_json(game)
+                self.response.out.write(']')
+            else:
+                self.error(http.HTTP_UNAUTHORIZED)
+                self.response.out.write('Permissions error for ' + email)
+        else:
+            # ID passed, look it up
+            game = gamemodel.Game.get(path_list[2])
+            if game is None:
+                self.error(http.HTTP_GONE)
+            elif not game.user_can_view(user):
+                self.error(http.HTTP_UNAUTHORIZED)
+            else:
+                if (path_list[1] == "chat"):
+                    # Get the last 200 chats on this channel
+                    chatObj = chat.get_chat(str(game.key()), GAME_CHAT_LIMIT)
+                    # Get the chat data - either starting at the start index, or
+                    # using what the user passed in
+                    index = 0
+                    if len(path_list) > 3:
+                        index = int(path_list[3])
+                    if index == 0:
+                        index = chatObj.index
+                    self.response.out.write(simplejson.dumps(chatObj.to_dict(index)))
+                else:
+                    # Get the game data
+                    index = 0
+                    if len(path_list) > 3:
+                        index = int(path_list[3])
+                    result = game.to_dict(user)
+                    result["num_moves"] = len(game.game_data)
+                    result["game_data"] = game.game_data[index:]
+                    self.response.out.write(simplejson.dumps(result))
 
     def Put(self, user):
         ''' Create a game '''
@@ -478,7 +534,8 @@ def filter_expired_battles(gameObj):
         return False
 
     # Untimed games don't expire currently
-    if gameObj.game_type == gamemodel.GAME_TYPE_CHESS:
+    if (gameObj.game_type == gamemodel.GAME_TYPE_CHESS 
+        or gameObj.game_type == 'dex'):
         return True
 
     # OK, we're a timed game. If we're an open game (nobody has joined yet) we
