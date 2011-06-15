@@ -43,7 +43,7 @@ var lobby = {
   // The games the user doesn't want to be prompted about
   ignoreMap: {},
   // The games that are dex battles.
-  dexMap: {}
+  dexMap: {},
   
   forceRefresh: function() {
     // If there's not already a refresh in process, refresh immediately.
