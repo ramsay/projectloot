@@ -306,12 +306,13 @@ GAME_TYPE_BLITZ_10 = "blitz-10"
 def public_game_list():
   """ Returns a list of open and public active games
   """
-  games = Game.gql("WHERE status = :status" 
-                   " ORDER BY last_modified DESC LIMIT 25",
-                   status=GAME_STATUS_OPEN)
+  games = Game.gql("WHERE status = :status AND class != 'Battle'" 
+                   " ORDER BY class, last_modified DESC LIMIT 25",
+                   status=GAME_STATUS_OPEN
+                   )
   
-  games2 = Game.gql("WHERE status = :status AND public=:public"
-                    " ORDER BY last_modified DESC LIMIT 25",
+  games2 = Game.gql("WHERE status = :status AND public=:public AND class != 'Battle'"
+                    " ORDER BY class, last_modified DESC LIMIT 25",
                     status=GAME_STATUS_ACTIVE, public=True)
   return filter(filter_expired_games, list(games) + list(games2))
 
@@ -330,10 +331,10 @@ def games_by_user_list(user):
   
 def completed_games_list(user):
   """ Returns a list of finished games that involve this user """
-  games = Game.gql("WHERE player1 = :user AND status = :status"
+  games = Game.gql("WHERE player1 = :user AND status = :status AND class != 'Battle'"
                    " ORDER BY last_modified DESC", 
                     user=user, status=GAME_STATUS_COMPLETE)
-  games2 = Game.gql("WHERE player2 = :user AND status = :status"
+  games2 = Game.gql("WHERE player2 = :user AND status = :status AND class != 'Battle'"
                     " ORDER BY last_modified DESC", 
                     user=user, status=GAME_STATUS_COMPLETE)
   result = list(games) + list(games2)
@@ -378,7 +379,11 @@ def filter_expired_games(gameObj):
       (elapsed >= ABANDONED_GAME_DURATION)):
     gameObj.delete()
     return False
-    
+  
+  #Filter any sublcasses
+  if gameObj.game_type not in [GAME_TYPE_CHESS, GAME_TYPE_BLITZ_5, GAME_TYPE_BLITZ_10]:
+    return False
+
   # Untimed games don't expire currently
   if gameObj.game_type == GAME_TYPE_CHESS:
     return True
