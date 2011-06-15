@@ -189,13 +189,13 @@ var lobby = {
     blitz.initAndDisplayDialog("#enterDialog");
     $('#goGame').attr({ref: key});
   },
-
-  goDex: function(gameKey) {
-    blitz.clickHandlers.goDex(gameKey);
-  },
   
   goGame: function(gameKey) {
-    blitz.clickHandlers.goGame(gameKey);
+    if (lobby.dexMap[gameKey]) {
+      blitz.clickHandlers.goDex(gameKey);
+    } else {
+      blitz.clickHandlers.goGame(gameKey);
+    }
   },
 
   joinGame: function(gameKey) {
@@ -214,7 +214,6 @@ var lobby = {
     }
     if (lobby.dexMap[gameKey]) {
       options.url = "/dex_ajax/" + gameKey + "/join";
-      options.success = function() {lobby.goDex(gameKey); };
     }
     $.ajax(options);
   },
