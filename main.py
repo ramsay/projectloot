@@ -105,12 +105,25 @@ class GamePage(ForceWikiPage):
         }
         return template.render(GamePage.template_path, template_values)
 
+class BattlePage(ForceWikiPage):
+    ''' Renderer for a page that shows an individual battle '''
+    template_path = os.path.join(os.path.dirname(__file__), 'battle.html')
+    def Get(self, user):
+        template_values = {
+            'user' : user,
+            'logout_url' : users.CreateLogoutURL('/'),
+            'game_key' : self.request.path.strip('/').split('/')[-1],
+            'mainContentClass' : 'mainContent'
+        }
+        return template.render(BattlePage.template_path, template_values)
+
 def main():
     application = webapp.WSGIApplication(
         [('/', MainHandler),
          ('/lobby', LobbyPage),
          ('/history', HistoryPage),
          ('/game/.*', GamePage),
+         ('/battle/.*', BattlePage),
          ('/lobby_ajax.*', lobby_ajax.LobbyHandler),
          ('/game_ajax.*', game_ajax.GameHandler),
          ('/dex_ajax.*', dex.DexHandler)],

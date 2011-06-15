@@ -96,7 +96,7 @@ var blitz = {
     },
     
     goDex: function(gameKey) {
-      top.location.href = "/dex/" + gameKey;
+      top.location.href = "/battle/" + gameKey;
     },
 
     sendGameChat: function() {
