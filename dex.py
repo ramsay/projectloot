@@ -4,6 +4,7 @@ Simplistic multiplayer card-like RPG.
 
 
 import sys
+from google.appengine.api.users import GetCurrentUser
 import http
 import time
 import urllib
@@ -283,6 +284,7 @@ class Battle(gamemodel.Game):
         """
         result = {}
         result['creator'] = self.player1.nickname()
+        result['creator_color'] = self.player1_color
         result['status'] = self.status
         result['key'] = str(self.key())
 
@@ -395,15 +397,15 @@ class DexHandler(ajax.AjaxHandler):
                 self.response.out.write('Permissions error for ' + email)
         else:
             # ID passed, look it up
-            game = gamemodel.Game.get(path_list[2])
-            if game is None:
+            battle = Battle.get(path_list[2])
+            if battle is None:
                 self.error(http.HTTP_GONE)
-            elif not game.user_can_view(user):
+            elif not battle.user_can_view(user):
                 self.error(http.HTTP_UNAUTHORIZED)
             else:
                 if (path_list[1] == "chat"):
                     # Get the last 200 chats on this channel
-                    chatObj = chat.get_chat(str(game.key()), GAME_CHAT_LIMIT)
+                    chatObj = chat.get_chat(str(battle.key()), GAME_CHAT_LIMIT)
                     # Get the chat data - either starting at the start index, or
                     # using what the user passed in
                     index = 0
@@ -417,9 +419,63 @@ class DexHandler(ajax.AjaxHandler):
                     index = 0
                     if len(path_list) > 3:
                         index = int(path_list[3])
-                    result = game.to_dict(user)
-                    result["num_moves"] = len(game.game_data)
-                    result["game_data"] = game.game_data[index:]
+                    result = battle.to_dict(user)
+                    result["num_moves"] = len(battle.game_data)
+                    result["game_data"] = []
+                    if result["num_moves"] > 0:
+                        result["game_data"] = battle.game_data[index:]
+                    result["teams"] ={'black': {
+        'health': 10,
+        'magic': 4,
+        'defense': 0,
+        'roster': [
+            {
+                'name': 'Fighter',
+                'img_class': '.warrior',
+                'strength': 2,
+                'agility': 3,
+                'defense': 1,
+                'ability' : { 'name': 'Roar',
+                            'cost': 0,
+                            'description': 'Strike fear in the hears of foes'},
+            },
+            {   'name': 'Mage',
+                'img_class': '.white_mage',
+                'strength': 1,
+                'agility': 5,
+                'defense': 1,
+                'ability' : { 'name': 'Heal',
+                            'cost': 2,
+                            'description': 'use primitive medical skills'}
+            }
+        ]
+    },'white': {
+        'health': 10,
+        'magic': 4,
+        'defense': 0,
+        'roster': [
+            {
+                'name': 'Fighter',
+                'img_class': '.warrior',
+                'strength': 2,
+                'agility': 3,
+                'defense': 1,
+                'ability' : { 'name': 'Roar',
+                            'cost': 0,
+                            'description': 'Strike fear in the hears of foes'},
+            },
+            {   'name': 'Mage',
+                'img_class': '.white_mage',
+                'strength': 1,
+                'agility': 5,
+                'defense': 1,
+                'ability' : { 'name': 'Heal',
+                            'cost': 2,
+                            'description': 'use primitive medical skills'}
+            }
+        ]
+    }
+                                      }
                     self.response.out.write(simplejson.dumps(result))
 
     def Put(self, user):
@@ -506,8 +562,14 @@ class DexHandler(ajax.AjaxHandler):
         else:
             return path_list[1]
 
-    def error(self, errors):
-        print self, errors
+    def Delete(self, user):
+        id = self._get_id_from_path()
+        battle = Battle.get(id)
+        if battle.player1 == GetCurrentUser():
+            battle.delete()
+        else:
+            self.response.status = 403
+        return self.response
 
 def battles_by_user_list(user):
     """ Returns a list of non-completed games that involve this user. Have to
@@ -527,25 +589,12 @@ def filter_expired_battles(gameObj):
     returns false.
     """
     elapsed = time.time() - time.mktime(gameObj.last_modified.timetuple())
-    # Games with no moves expire after a week
-    if ((not gameObj.moves1 or (len(gameObj.moves1) == 0)) and
-        (elapsed >= gamemodel.ABANDONED_GAME_DURATION)):
-        gameObj.delete()
-        return False
 
     # Untimed games don't expire currently
     if (gameObj.game_type == gamemodel.GAME_TYPE_CHESS 
         or gameObj.game_type == 'dex'):
         return True
 
-    # OK, we're a timed game. If we're an open game (nobody has joined yet) we
-    # expire after 15 minutes.
-    if gameObj.status == gamemodel.GAME_STATUS_OPEN:
-        if elapsed > gamemodel.OPEN_GAME_EXPIRATION:
-            gameObj.delete()
-            return False
-        else:
-            return True
 
     # OK, there are moves in this game. Calculate whose turn it is, how long
     # since their last move, and whether the game should be over or not. This is
@@ -574,7 +623,8 @@ def filter_expired_battles(gameObj):
         # Set the time as expired for the poor loser
         gameObj.update(loser, timer=0)
     else:
-        gameObj.delete()
+        pass
+        #gameObj.delete()
     return False
 
 def public_battle_list():
@@ -588,3 +638,5 @@ def public_battle_list():
                     " ORDER BY last_modified DESC LIMIT 25",
                     status=gamemodel.GAME_STATUS_ACTIVE, public=True)
     return filter(filter_expired_battles, list(games) + list(games2))
+
+GAME_CHAT_LIMIT = 200
