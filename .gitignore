@@ -1,2 +1,5 @@
 *.pyc
 index.yaml
+.idea
+.idea/*
+projectloot.nja
