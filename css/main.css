@@ -270,7 +270,7 @@ tr.gameTableHeader {
     height: 448px;
     margin: auto;
 }
-.gameBoard, .blackHeader, .whiteHeader{
+.gameBoard, .blackHeader, .whiteHeader, .battleBoard{
     width:448px;
     margin: auto;
 }
@@ -281,10 +281,19 @@ tr.gameTableHeader {
     margin-bottom: 5px;
 }
 
-.gameBoard {
+.gameBoard, .batteBoard {
     position: relative;
     height:448px;
     background-image: url(/images/board_56x56.gif);
+    border: 1px solid;
+}
+
+.battleBoard {
+    position: relative;
+    height:448px;
+    background-color: black;
+    background-image: url(/images/ff3/backgrounds/Forest.gif);
+    background-repeat: no-repeat;
     border: 1px solid;
 }
 
