@@ -1,32 +1,42 @@
 
+.battleMenu {
+  list-style:  none;
+}
+.battleMenu .character {
+    float: left;
+    position: relative;
+}
 .piece {
     width: 56px;
     height: 56px;
-    xbackground-image: url(/images/ff3/backgrounds/Forest.git);
+    xbackground-image: url(/images/ff3/backgrounds/Forest.gif);
     background-image: url(/images/jin.png);
     background-repeat: no-repeat;
     position: absolute;
 }
-
+.character {
+    width: 56px;
+    height: 56px;
+    xbackground-color: black;
+    background-repeat: no-repeat;
+    position: absolute;
+}
+.warrior {
+    background-image: url(/images/ff3/sprites/warrior/Warrior.gif);
+}
+.white_mage {
+    background-image: url(/images/ff3/sprites/white_mage/WhiteMage.gif);
+}
 .gameBoard .ie6 {
     background-image: url(/images/jin.gif);
 }
 
-.queen {
-    background-position: -56px 0px;
+.fighter {
+    background-position: 0px 0px;
 }
 
-.bishop {
-    background-position: -112px 0px;
-}
-.knight {
-    background-position: -168px 0px;
-}
-.rook {
-    background-position: -224px 0px;
-}
-.pawn {
-    background-position: -280px 0px;
+.queen {
+    background-position: -56px 0px;
 }
 .blank {
     background-position: 500px 0px;
